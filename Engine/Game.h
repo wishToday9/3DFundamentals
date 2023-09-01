@@ -26,7 +26,7 @@
 #include "ChiliMath.h"
 #include <memory>
 #include "Scene.h"
-
+#include "FrameTimer.h"
 
 class Game
 {
@@ -38,6 +38,7 @@ public:
 
 	//user function
 	void CycleScenes();
+	void ReverseCycleScenes();
 	void OutputSceneName() const;
 private:
 	void ComposeFrame();
@@ -50,8 +51,10 @@ private:
 	Graphics gfx;
 	/********************************/
 	/*  User Variables              */
+	FrameTimer ft;
 	std::vector<std::unique_ptr<Scene>> scenes;
 	std::vector<std::unique_ptr<Scene>>::iterator curScene;
+
 	/********************************/
 
 };

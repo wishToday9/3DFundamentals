@@ -118,10 +118,6 @@ public:
 			x * rhs.y - y * rhs.x);
 	}
 
-	_Vec3	InterpolateTo(const _Vec3& dest, T alpha) const
-	{
-		return *this + (dest - *this) * alpha;
-	}
 public:
 	T z;
 };

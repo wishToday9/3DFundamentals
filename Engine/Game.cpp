@@ -21,38 +21,16 @@
 #include "MainWindow.h"
 #include "Game.h"
 #include "Mat3.h"
-#include "SolidCubeScene.h"
-#include "CubeOrderScene.h"
-#include "ConHexScene.h"
-#include "ConHexWireScene.h"
-#include "XMutualScene.h"
-#include "TexCubeScene.h"
-#include "TexWrapCubeScene.h"
-#include "FoldedCubeScene.h"
-#include "FoldedCubeWrapScene.h"
-#include "CubeSkinnedScene.h"
 #include <sstream>
-
+#include "CubeSkinScene.h"
 
 Game::Game( MainWindow& wnd )
 	:
 	wnd( wnd ),
 	gfx( wnd )
 {
-	scenes.push_back(std::make_unique<SolidCubeScene>());
-	scenes.push_back(std::make_unique<CubeOrderScene>());
-	scenes.push_back(std::make_unique<ConHexScene>());
-	scenes.push_back(std::make_unique<ConHexWireScene>());
-	scenes.push_back(std::make_unique<XMutualScene>());
-	scenes.push_back(std::make_unique<TexCubeScene>());
-	scenes.push_back(std::make_unique<TexCubeScene>(2.0f));
-	scenes.push_back(std::make_unique<TexWrapCubeScene>(2.0f));
-	scenes.push_back(std::make_unique<TexWrapCubeScene>(6.0f));
-	scenes.push_back(std::make_unique<FoldedCubeScene>());
-	scenes.push_back(std::make_unique<FoldedCubeWrapScene>());
-	scenes.push_back(std::make_unique<CubeSkinnedScene>(L"Images\\dice_skin.png"));
-	scenes.push_back(std::make_unique<CubeSkinnedScene>(L"Images\\office_skin.jpg"));
-	scenes.push_back(std::make_unique<CubeSkinnedScene>(L"Images\\office_skin_lores.png"));
+
+	scenes.push_back(std::make_unique<CubeSkinScene>(gfx, L"images\\office_skin.jpg"));
 	curScene = scenes.begin();
 	OutputSceneName();
 }
@@ -68,14 +46,21 @@ void Game::Go()
 void Game::UpdateModel()
 {
 	
-	const float dt = 1.0f / 60.0f;
+	const float dt = ft.Mark();
 	//cycle through scenes when tab is pressed
 	while (!wnd.kbd.KeyIsEmpty())
 	{
 		const auto e = wnd.kbd.ReadKey();
 		if (e.GetCode() == VK_TAB && e.IsPress())
 		{
-			CycleScenes();
+			if (wnd.kbd.KeyIsPressed(VK_SHIFT))
+			{
+				ReverseCycleScenes();
+			}
+			else
+			{
+				CycleScenes();
+			}
 		}
 		else if (e.GetCode() == VK_ESCAPE && e.IsPress())
 		{
@@ -95,6 +80,18 @@ void Game::CycleScenes()
 	OutputSceneName();
 }
 
+void Game::ReverseCycleScenes()
+{
+	if(curScene == scenes.begin()) {
+		curScene = scenes.end() - 1;
+	}
+	else {
+		--curScene;
+	}
+	OutputSceneName();
+
+}
+
 void Game::OutputSceneName() const
 {
 	std::stringstream ss;
@@ -109,5 +106,5 @@ void Game::OutputSceneName() const
 void Game::ComposeFrame()
 {
 	//draw scene
-	(*curScene)->Draw(gfx);
+	(*curScene)->Draw();
 }
