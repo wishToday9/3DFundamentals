@@ -24,8 +24,8 @@
 #include "Vec2.h"
 #include <vector>
 #include "ChiliMath.h"
-#include "PubeScreenTransformer.h"
-#include "Cube.h"
+#include <memory>
+#include "Scene.h"
 
 class Game
 {
@@ -34,6 +34,9 @@ public:
 	Game( const Game& ) = delete;
 	Game& operator=( const Game& ) = delete;
 	void Go();
+
+	//user function
+	void CycleScenes();
 private:
 	void ComposeFrame();
 	void UpdateModel();
@@ -45,13 +48,8 @@ private:
 	Graphics gfx;
 	/********************************/
 	/*  User Variables              */
-	PubeScreenTransformer pst;
-	Cube cube;
-	static constexpr float dTheta = PI;
-	float theta_x = 0.0f;
-	float theta_y = 0.0f;
-	float theta_z = 0.0f;
-	float offset_z = 2.0f;
+	std::vector<std::unique_ptr<Scene>> scenes;
+	std::vector<std::unique_ptr<Scene>>::iterator curScene;
 	/********************************/
 
 };
