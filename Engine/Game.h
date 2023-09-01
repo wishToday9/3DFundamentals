@@ -27,6 +27,7 @@
 #include <memory>
 #include "Scene.h"
 
+
 class Game
 {
 public:
@@ -37,6 +38,7 @@ public:
 
 	//user function
 	void CycleScenes();
+	void OutputSceneName() const;
 private:
 	void ComposeFrame();
 	void UpdateModel();

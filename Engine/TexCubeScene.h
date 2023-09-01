@@ -6,7 +6,15 @@
 
 class TexCubeScene : public Scene {
 public:
-	TexCubeScene() = default;
+	TexCubeScene()
+		:
+		TexCubeScene(1.0f)
+	{}
+	TexCubeScene(float texdim)
+		:
+		cube(1.0f, texdim),
+		Scene("Textured Cube Butthole Of Sauron Clamped Dim: " + std::to_string(texdim))
+	{}
 	virtual void Update(Keyboard& kbd, Mouse& mouse , float dt) override{
 		if (kbd.KeyIsPressed('Q'))
 		{
