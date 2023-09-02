@@ -21,14 +21,33 @@
 #include "MainWindow.h"
 #include "Game.h"
 #include "Mat3.h"
+#include <sstream>
+#include "CubeSkinScene.h"
+#include "CubeVertexColorScene.h"
+#include "CubeSolidScene.h"
+#include "DoubleCubeScene.h"
+#include "VertexWaveScene.h"
+#include "CubeVertexPositionColorScene.h"
+#include "CubeSolidGeometryScene.h"
+#include "CubeFlatIndependentScene.h"
+#include "GeometryFlatScene.h"
 
 Game::Game( MainWindow& wnd )
 	:
 	wnd( wnd ),
-	gfx( wnd ),
-	cube(1.0f)
+	gfx( wnd )
 {
-
+	scenes.push_back(std::make_unique<GeometryFlatScene>(gfx, Cube::GetPlain<GeometryFlatScene::Vertex>()));
+	scenes.push_back(std::make_unique<CubeFlatIndependentScene>(gfx));
+	scenes.push_back(std::make_unique<CubeSolidGeometryScene>(gfx));
+	scenes.push_back(std::make_unique<CubeVertexPositionColorScene>(gfx));
+	scenes.push_back(std::make_unique<VertexWaveScene>(gfx));
+	scenes.push_back(std::make_unique<CubeSkinScene>(gfx, L"images\\office_skin.jpg"));
+	scenes.push_back(std::make_unique<CubeVertexColorScene>(gfx));
+	scenes.push_back(std::make_unique<CubeSolidScene>(gfx));
+	scenes.push_back(std::make_unique<DoubleCubeScene>(gfx));
+	curScene = scenes.begin();
+	OutputSceneName();
 }
 
 void Game::Go()
@@ -41,99 +60,66 @@ void Game::Go()
 
 void Game::UpdateModel()
 {
-	const float dt = 1.0f / 60.0f;
-	if (wnd.kbd.KeyIsPressed('Q'))
+	
+	const float dt = ft.Mark();
+	//cycle through scenes when tab is pressed
+	while (!wnd.kbd.KeyIsEmpty())
 	{
-		theta_x = wrap_angle(theta_x + dTheta * dt);
+		const auto e = wnd.kbd.ReadKey();
+		if (e.GetCode() == VK_TAB && e.IsPress())
+		{
+			if (wnd.kbd.KeyIsPressed(VK_SHIFT))
+			{
+				ReverseCycleScenes();
+			}
+			else
+			{
+				CycleScenes();
+			}
+		}
+		else if (e.GetCode() == VK_ESCAPE && e.IsPress())
+		{
+			wnd.Kill();
+		}
 	}
-	if (wnd.kbd.KeyIsPressed('W'))
-	{
-		theta_y = wrap_angle(theta_y + dTheta * dt);
-	}
-	if (wnd.kbd.KeyIsPressed('E'))
-	{
-		theta_z = wrap_angle(theta_z + dTheta * dt);
-	}
-	if (wnd.kbd.KeyIsPressed('A'))
-	{
-		theta_x = wrap_angle(theta_x - dTheta * dt);
-	}
-	if (wnd.kbd.KeyIsPressed('S'))
-	{
-		theta_y = wrap_angle(theta_y - dTheta * dt);
-	}
-	if (wnd.kbd.KeyIsPressed('D'))
-	{
-		theta_z = wrap_angle(theta_z - dTheta * dt);
-	}
-	if (wnd.kbd.KeyIsPressed('R'))
-	{
-		offset_z += 2.0f * dt;
-	}
-	if (wnd.kbd.KeyIsPressed('F'))
-	{
-		offset_z -= 2.0f * dt;
-	}
+	// update scene
+	(*curScene)->Update(wnd.kbd, wnd.mouse, dt);
 
+}
+
+void Game::CycleScenes()
+{
+	if (++curScene == scenes.end()) {
+		curScene = scenes.begin();
+	}
+	OutputSceneName();
+}
+
+void Game::ReverseCycleScenes()
+{
+	if(curScene == scenes.begin()) {
+		curScene = scenes.end() - 1;
+	}
+	else {
+		--curScene;
+	}
+	OutputSceneName();
+
+}
+
+void Game::OutputSceneName() const
+{
+	std::stringstream ss;
+	const std::string stars((*curScene)->GetName().size() + 4, '*');
+
+	ss << stars << std::endl
+		<< "* " << (*curScene)->GetName() << " *" << std::endl
+		<< stars << std::endl;
+	OutputDebugStringA(ss.str().c_str());
 }
 
 void Game::ComposeFrame()
 {
-	const Color colors[12] = {
-		Colors::White,
-		Colors::Blue,
-		Colors::Cyan,
-		Colors::Gray,
-		Colors::Green,
-		Colors::Magenta,
-		Colors::LightGray,
-		Colors::Red,
-		Colors::Yellow,
-		Colors::White,
-		Colors::Blue,
-		Colors::Cyan
-	};
-	//generate indexed triangle list
-	auto triangles = cube.GetTriangles();
-	const Mat3 rot =
-		Mat3::RotationX(theta_x) *
-		Mat3::RotationY(theta_y) *
-		Mat3::RotationZ(theta_z);
-	//transfor form model space -> world space
-	for (auto& v : triangles.vertices)
-	{
-		v *= rot;
-		v += { 0.0f, 0.0f, offset_z };
-	}
-
-	//backface culling test(must be done in world(/view) space)
-	for (size_t i = 0, end = triangles.indices.size() / 3; i < end; ++i) {
-		const Vec3& v0 = triangles.vertices[triangles.indices[i * 3]];
-		const Vec3& v1 = triangles.vertices[triangles.indices[i * 3 + 1]];
-		const Vec3& v2 = triangles.vertices[triangles.indices[i * 3 + 2]];
-		triangles.cullFlags[i] = (v1 - v0) % (v2 - v0) * v0 > 0.0f;
-	}
-	// transform to screen space (includes perspective transform)
-	for (auto& v : triangles.vertices)
-	{
-		pst.Transform(v);
-	}
-
-	//draw the mf triangles
-	for (size_t i = 0,
-		end = triangles.indices.size() / 3;
-		i < end; i++)
-	{
-		if (!triangles.cullFlags[i])
-		{
-			gfx.DrawTriangle(
-				triangles.vertices[triangles.indices[i * 3]],
-				triangles.vertices[triangles.indices[i * 3 + 1]],
-				triangles.vertices[triangles.indices[i * 3 + 2]],
-				colors[i]);
-		}
-	}
-
-
-
+	//draw scene
+	(*curScene)->Draw();
 }

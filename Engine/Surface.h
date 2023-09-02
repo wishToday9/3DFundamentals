@@ -94,6 +94,7 @@ public:
 	{
 		assert( x >= 0 );
 		assert( y >= 0 );
+
 		assert( x < width );
 		assert( y < height );
 		return pBuffer[y * pitch + x];
