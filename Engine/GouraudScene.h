@@ -4,19 +4,19 @@
 #include "Cube.h"
 #include "Mat3.h"
 #include "Pipeline.h"
-#include "GeometryFlatEffect.h"
+#include "GouraudEffect.h"
 
-class GeometryFlatScene : public Scene
+class GouraudScene : public Scene
 {
 public:
-	typedef Pipeline<GeometryFlatEffect> Pipeline;
+	typedef Pipeline<GouraudEffect> Pipeline;
 	typedef Pipeline::Vertex Vertex;
 public:
-	GeometryFlatScene(Graphics& gfx, IndexedTriangleList<Vertex> tl)
+	GouraudScene(Graphics& gfx, IndexedTriangleList<Vertex> tl)
 		:
 		itlist(std::move(tl)),
 		pipeline(gfx),
-		Scene("flat geometry scene free mesh")
+		Scene("gouraud shader scene free mesh")
 	{
 		itlist.AdjustToTrueCenter();
 		offset_z = itlist.GetRadius() * 1.6f;
@@ -97,7 +97,7 @@ public:
 		// set pipeline transform
 		pipeline.effect.vs.BindRotation(rot);
 		pipeline.effect.vs.BindTranslation(trans);
-		pipeline.effect.gs.SetLightDirection(light_dir * rot_phi);
+		pipeline.effect.vs.SetLightDirection(light_dir * rot_phi);
 		// render triangles
 		pipeline.Draw(itlist);
 	}

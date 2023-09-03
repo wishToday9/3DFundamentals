@@ -156,13 +156,20 @@
     <ClInclude Include="GDIPlusManager.h" />
     <ClInclude Include="GeometryFlatEffect.h" />
     <ClInclude Include="GeometryFlatScene.h" />
+    <ClInclude Include="GouraudEffect.h" />
+    <ClInclude Include="GouraudPointEffect.h" />
+    <ClInclude Include="GouraudPointScene.h" />
+    <ClInclude Include="GouraudScene.h" />
     <ClInclude Include="Graphics.h" />
     <ClInclude Include="IndexedTriangleList.h" />
     <ClInclude Include="Keyboard.h" />
     <ClInclude Include="MainWindow.h" />
     <ClInclude Include="Mat2.h" />
     <ClInclude Include="Mat3.h" />
+    <ClInclude Include="Miniball.h" />
     <ClInclude Include="Mouse.h" />
+    <ClInclude Include="PhongPointEffect.h" />
+    <ClInclude Include="PhongPointScene.h" />
     <ClInclude Include="Pipeline.h" />
     <ClInclude Include="Plane.h" />
     <ClInclude Include="PubeScreenTransformer.h" />
@@ -171,8 +178,12 @@
     <ClInclude Include="Scene.h" />
     <ClInclude Include="SolidEffect.h" />
     <ClInclude Include="SolidGeometryEffect.h" />
+    <ClInclude Include="SpecularPhongPointEffect.h" />
+    <ClInclude Include="SpecularPhongPointScene.h" />
+    <ClInclude Include="Sphere.h" />
     <ClInclude Include="Surface.h" />
     <ClInclude Include="TextureEffect.h" />
+    <ClInclude Include="tiny_obj_loader.h" />
     <ClInclude Include="Triangle.h" />
     <ClInclude Include="Vec2.h" />
     <ClInclude Include="Vec3.h" />
@@ -194,6 +205,7 @@
     <ClCompile Include="MainWindow.cpp" />
     <ClCompile Include="Mouse.cpp" />
     <ClCompile Include="Surface.cpp" />
+    <ClCompile Include="tiny_obj_loader.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="FramebufferPS.hlsl">

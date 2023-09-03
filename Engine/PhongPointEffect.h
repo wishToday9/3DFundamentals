@@ -1,11 +1,10 @@
 #pragma once
 
 #include "Pipeline.h"
-#include "DefaultVertexShader.h"
 #include "DefaultGeometryShader.h"
 
 // flat shading with vertex normals
-class VertexFlatEffect
+class PhongPointEffect
 {
 public:
 	// the vertex type that will be input into the pipeline
@@ -27,42 +26,6 @@ public:
 			n(n),
 			pos(pos)
 		{}
-		Vertex& operator+=(const Vertex& rhs)
-		{
-			pos += rhs.pos;
-			return *this;
-		}
-		Vertex operator+(const Vertex& rhs) const
-		{
-			return Vertex(*this) += rhs;
-		}
-		Vertex& operator-=(const Vertex& rhs)
-		{
-			pos -= rhs.pos;
-			return *this;
-		}
-		Vertex operator-(const Vertex& rhs) const
-		{
-			return Vertex(*this) -= rhs;
-		}
-		Vertex& operator*=(float rhs)
-		{
-			pos *= rhs;
-			return *this;
-		}
-		Vertex operator*(float rhs) const
-		{
-			return Vertex(*this) *= rhs;
-		}
-		Vertex& operator/=(float rhs)
-		{
-			pos /= rhs;
-			return *this;
-		}
-		Vertex operator/(float rhs) const
-		{
-			return Vertex(*this) /= rhs;
-		}
 	public:
 		Vec3 pos;
 		Vec3 n;
@@ -82,17 +45,21 @@ public:
 			{}
 			Output(const Vec3& pos, const Output& src)
 				:
-				color(src.color),
+				n(src.n),
+				worldPos(src.worldPos),
 				pos(pos)
 			{}
-			Output(const Vec3& pos, const Color& color)
+			Output(const Vec3& pos, const Vec3& n, const Vec3& worldPos)
 				:
-				color(color),
-				pos(pos)
+				n(n),
+				pos(pos),
+				worldPos(worldPos)
 			{}
 			Output& operator+=(const Output& rhs)
 			{
 				pos += rhs.pos;
+				n += rhs.n;
+				worldPos += rhs.worldPos;
 				return *this;
 			}
 			Output operator+(const Output& rhs) const
@@ -102,6 +69,8 @@ public:
 			Output& operator-=(const Output& rhs)
 			{
 				pos -= rhs.pos;
+				n -= rhs.n;
+				worldPos -= rhs.worldPos;
 				return *this;
 			}
 			Output operator-(const Output& rhs) const
@@ -111,6 +80,8 @@ public:
 			Output& operator*=(float rhs)
 			{
 				pos *= rhs;
+				n *= rhs;
+				worldPos *= rhs;
 				return *this;
 			}
 			Output operator*(float rhs) const
@@ -120,6 +91,8 @@ public:
 			Output& operator/=(float rhs)
 			{
 				pos /= rhs;
+				n /= rhs;
+				worldPos /= rhs;
 				return *this;
 			}
 			Output operator/(float rhs) const
@@ -128,7 +101,8 @@ public:
 			}
 		public:
 			Vec3 pos;
-			Color color;
+			Vec3 n;
+			Vec3 worldPos;
 		};
 	public:
 		void BindRotation(const Mat3& rotation_in)
@@ -141,36 +115,12 @@ public:
 		}
 		Output operator()(const Vertex& v) const
 		{
-			// calculate intensity based on angle of incidence
-			const auto d = diffuse * std::max(0.0f, -(v.n * rotation) * dir);
-			// add diffuse+ambient, filter by material color, saturate and scale
-			const auto c = color.GetHadamard(d + ambient).Saturate() * 255.0f;
-			return{ v.pos * rotation + translation,Color(c) };
-		}
-		void SetDiffuseLight(const Vec3& c)
-		{
-			diffuse = { c.x,c.y,c.z };
-		}
-		void SetAmbientLight(const Vec3& c)
-		{
-			ambient = { c.x,c.y,c.z };
-		}
-		void SetLightDirection(const Vec3& dl)
-		{
-			assert(dl.LenSq() >= 0.001f);
-			dir = dl.GetNormalized();
-		}
-		void SetMaterialColor(Color c)
-		{
-			color = Vec3(c);
+			const auto pos = v.pos * rotation + translation;
+			return{ pos,v.n * rotation,pos };
 		}
 	private:
 		Mat3 rotation;
 		Vec3 translation;
-		Vec3 dir = { 0.0f,0.0f,1.0f };
-		Vec3 diffuse = { 1.0f,1.0f,1.0f };
-		Vec3 ambient = { 0.1f,0.1f,0.1f };
-		Vec3 color = { 0.8f,0.85f,1.0f };
 	};
 	// default gs passes vertices through and outputs triangle
 	typedef DefaultGeometryShader<VertexShader::Output> GeometryShader;
@@ -184,8 +134,38 @@ public:
 		template<class Input>
 		Color operator()(const Input& in) const
 		{
-			return in.color;
+			// vertex to light data
+			const auto v_to_l = light_pos - in.worldPos;
+			const auto dist = v_to_l.Len();
+			const auto dir = v_to_l / dist;
+			// calculate attenuation
+			const auto attenuation = 1.0f /
+				(constant_attenuation + linear_attenuation * dist + quadradic_attenuation * sq(dist));
+			// calculate intensity based on angle of incidence and attenuation
+			const auto d = light_diffuse * attenuation * std::max(0.0f, in.n.GetNormalized() * dir);
+			// add diffuse+ambient, filter by material color, saturate and scale
+			return Color(material_color.GetHadamard(d + light_ambient).Saturate() * 255.0f);
 		}
+		void SetDiffuseLight(const Vec3& c)
+		{
+			light_diffuse = c;
+		}
+		void SetAmbientLight(const Vec3& c)
+		{
+			light_ambient = c;
+		}
+		void SetLightPosition(const Vec3& pos_in)
+		{
+			light_pos = pos_in;
+		}
+	private:
+		Vec3 light_pos = { 0.0f,0.0f,0.5f };
+		Vec3 light_diffuse = { 1.0f,1.0f,1.0f };
+		Vec3 light_ambient = { 0.1f,0.1f,0.1f };
+		Vec3 material_color = { 0.8f,0.85f,1.0f };
+		float linear_attenuation = 1.0f;
+		float quadradic_attenuation = 2.619f;
+		float constant_attenuation = 0.382f;
 	};
 public:
 	VertexShader vs;

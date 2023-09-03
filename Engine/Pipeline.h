@@ -9,6 +9,8 @@
 #include "ZBuffer.h"
 #include <algorithm>
 #include "TextureEffect.h"
+#include <memory>
+
 
 // triangle drawing pipeline with programable
 // pixel shading stage
@@ -24,9 +26,15 @@ public:
 public:
 	Pipeline(Graphics& gfx)
 		:
-		gfx(gfx),
-		zb(gfx.ScreenWidth, gfx.ScreenHeight)
+		Pipeline(gfx, std::make_shared<ZBuffer>(gfx.ScreenWidth, gfx.ScreenHeight))
 	{}
+	Pipeline(Graphics& gfx, std::shared_ptr<ZBuffer> pZb_in)
+		:
+		gfx(gfx),
+		pZb(std::move(pZb_in))
+	{
+		assert(this->pZb->GetHeight() == gfx.ScreenHeight && this->pZb->GetWidth() == gfx.ScreenWidth);
+	}
 
 	void Draw(IndexedTriangleList<Vertex>& triList)
 	{
@@ -36,7 +44,7 @@ public:
 	//needed to reset the z-buffer after each frame
 	void BeginFrame()
 	{
-		zb.Clear();
+		pZb->Clear();
 	}
 
 private:
@@ -232,7 +240,7 @@ private:
 				const float z = 1.0f / iLine.pos.z;
 				// do z rejection / update of z buffer
 				// skip shading step if z rejected (early z)
-				if (zb.TestAndSet(x, y, z))
+				if (pZb->TestAndSet(x, y, z))
 				{
 					// recover interpolated attributes
 					// (wasted effort in multiplying pos (x,y,z) here, but
@@ -248,7 +256,7 @@ private:
 public:
 		Effect effect;
 private:
-	ZBuffer zb;
+	std::shared_ptr<ZBuffer> pZb;
 	Graphics& gfx;
 	PubeScreenTransformer pst;
 	Mat3 rotation;
