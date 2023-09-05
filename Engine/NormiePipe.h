@@ -8,45 +8,39 @@
 #include "Mat.h"
 #include "ZBuffer.h"
 #include <algorithm>
-#include "TextureEffect.h"
 #include <memory>
-
 
 // triangle drawing pipeline with programable
 // pixel shading stage
 template<class Effect>
-class Pipeline
+class NormiePipe
 {
 public:
 	// vertex type used for geometry and throughout pipeline
 	typedef typename Effect::Vertex Vertex;
 	typedef typename Effect::VertexShader::Output VSOut;
 	typedef typename Effect::GeometryShader::Output GSOut;
-
 public:
-	Pipeline(Graphics& gfx)
+	NormiePipe(Graphics& gfx)
 		:
-		Pipeline(gfx, std::make_shared<ZBuffer>(gfx.ScreenWidth, gfx.ScreenHeight))
+		NormiePipe(gfx, std::make_shared<ZBuffer>(gfx.ScreenWidth, gfx.ScreenHeight))
 	{}
-	Pipeline(Graphics& gfx, std::shared_ptr<ZBuffer> pZb_in)
+	NormiePipe(Graphics& gfx, std::shared_ptr<ZBuffer> pZb_in)
 		:
 		gfx(gfx),
 		pZb(std::move(pZb_in))
 	{
-		assert(this->pZb->GetHeight() == gfx.ScreenHeight && this->pZb->GetWidth() == gfx.ScreenWidth);
+		assert(pZb->GetHeight() == gfx.ScreenHeight && pZb->GetWidth() == gfx.ScreenWidth);
 	}
-
 	void Draw(const IndexedTriangleList<Vertex>& triList)
 	{
 		ProcessVertices(triList.vertices, triList.indices);
 	}
-	
-	//needed to reset the z-buffer after each frame
+	// needed to reset the z-buffer after each frame
 	void BeginFrame()
 	{
 		pZb->Clear();
 	}
-
 private:
 	// vertex processing function
 	// transforms vertices using vs and then passes vtx & idx lists to triangle assembler
@@ -55,12 +49,24 @@ private:
 		// create vertex vector for vs output
 		std::vector<VSOut> verticesOut(vertices.size());
 
-		// transform vertices using matrix + vector
-
 		// transform vertices with vs
 		std::transform(vertices.begin(), vertices.end(),
 			verticesOut.begin(),
 			effect.vs);
+
+		for (const auto& v : verticesOut)
+		{
+			auto v0 = v;
+			decltype(v0) v1;
+			v1.pos = v.nend;
+			if (v1.pos.z < 0.01f || v0.pos.z < 0.01f)
+			{
+				continue;
+			}
+			pst.Transform(v0);
+			pst.Transform(v1);
+			gfx.DrawLineDepth(*pZb, v0.pos, v1.pos, Colors::Cyan);
+		}
 
 		// assemble triangles from stream of indices and vertices
 		AssembleTriangles(verticesOut, indices);
@@ -71,7 +77,6 @@ private:
 	void AssembleTriangles(const std::vector<VSOut>& vertices, const std::vector<size_t>& indices)
 	{
 		const auto eyepos = Vec4{ 0.0f,0.0f,0.0f,1.0f } *effect.vs.GetProj();
-
 		// assemble triangles in the stream and process
 		for (size_t i = 0, end = indices.size() / 3;
 			i < end; i++)
@@ -137,6 +142,7 @@ private:
 		{
 			return;
 		}
+
 		// clipping routines
 		const auto Clip1 = [this](GSOut& v0, GSOut& v1, GSOut& v2)
 		{
@@ -198,7 +204,6 @@ private:
 			PostProcessTriangleVertices(t);
 		}
 	}
-
 	// vertex post-processing function
 	// perform perspective and viewport transformations
 	void PostProcessTriangleVertices(Triangle<GSOut>& triangle)
@@ -311,15 +316,12 @@ private:
 		auto itEdge0 = it0;
 
 		// calculate start and end scanlines
-		const int yStart = std::max( (int)ceil( it0.pos.y - 0.5f ),0 );
-		const int yEnd = std::min( (int)ceil( it2.pos.y - 0.5f ),(int)Graphics::ScreenHeight - 1 ); // the scanline AFTER the last line drawn
-
+		const int yStart = std::max((int)ceil(it0.pos.y - 0.5f), 0);
+		const int yEnd = std::min((int)ceil(it2.pos.y - 0.5f), (int)Graphics::ScreenHeight - 1); // the scanline AFTER the last line drawn
 
 		// do interpolant prestep
 		itEdge0 += dv0 * (float(yStart) + 0.5f - it0.pos.y);
 		itEdge1 += dv1 * (float(yStart) + 0.5f - it0.pos.y);
-
-
 
 		for (int y = yStart; y < yEnd; y++, itEdge0 += dv0, itEdge1 += dv1)
 		{
@@ -341,7 +343,6 @@ private:
 
 			for (int x = xStart; x < xEnd; x++, iLine += diLine)
 			{
-
 				// do z rejection / update of z buffer
 				// skip shading step if z rejected (early z)
 				if (pZb->TestAndSet(x, y, iLine.pos.z))
@@ -360,11 +361,9 @@ private:
 		}
 	}
 public:
-		Effect effect;
+	Effect effect;
 private:
-	std::shared_ptr<ZBuffer> pZb;
 	Graphics& gfx;
 	NDCScreenTransformer pst;
-	Mat3 rotation;
-	Vec3 translation;
+	std::shared_ptr<ZBuffer> pZb;
 };

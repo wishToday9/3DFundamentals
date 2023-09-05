@@ -1,13 +1,13 @@
 #pragma once
 
 #include "Pipeline.h"
-#include "DefaultGeometryShader.h"
 #include "BaseVertexShader.h"
+#include "DefaultGeometryShader.h"
 #include "BasePhongShader.h"
 
 // flat shading with vertex normals
 template<class Diffuse, class Specular>
-class SpecularPhongPointEffect
+class RippleVertexSpecularPhongEffect
 {
 public:
 	// the vertex type that will be input into the pipeline
@@ -21,21 +21,22 @@ public:
 		{}
 		Vertex(const Vec3& pos, const Vertex& src)
 			:
-			n(src.n),
+			t(src.t),
 			pos(pos)
 		{}
-		Vertex(const Vec3& pos, const Vec3& n)
+		Vertex(const Vec3& pos, const Vec2& t)
 			:
-			n(n),
+			t(t),
 			pos(pos)
 		{}
 	public:
 		Vec3 pos;
-		Vec3 n;
+		Vec2 t;
 	};
-	//vertex shader
+	// vertex shader
 	// output interpolates position, normal, world position
-class VSOutput{
+	class VSOutput
+	{
 	public:
 		VSOutput() = default;
 		VSOutput(const Vec4& pos)
@@ -46,19 +47,25 @@ class VSOutput{
 			:
 			n(src.n),
 			worldPos(src.worldPos),
-			pos(pos)
+			pos(pos),
+			t(src.t),
+			nend(src.nend)
 		{}
-		VSOutput(const Vec4& pos, const Vec3& n, const Vec3& worldPos)
+		VSOutput(const Vec4& pos, const Vec3& n, const Vec3& worldPos, const Vec2& t,  const Vec4& nend)
 			:
 			n(n),
 			pos(pos),
-			worldPos(worldPos)
+			worldPos(worldPos),
+			t(t),
+			nend(nend)
 		{}
 		VSOutput& operator+=(const VSOutput& rhs)
 		{
 			pos += rhs.pos;
 			n += rhs.n;
 			worldPos += rhs.worldPos;
+			t += rhs.t;
+			nend += rhs.nend;
 			return *this;
 		}
 		VSOutput operator+(const VSOutput& rhs) const
@@ -70,6 +77,8 @@ class VSOutput{
 			pos -= rhs.pos;
 			n -= rhs.n;
 			worldPos -= rhs.worldPos;
+			t -= rhs.t;
+			nend -= rhs.nend;
 			return *this;
 		}
 		VSOutput operator-(const VSOutput& rhs) const
@@ -81,6 +90,8 @@ class VSOutput{
 			pos *= rhs;
 			n *= rhs;
 			worldPos *= rhs;
+			t *= rhs;
+			nend *= rhs;
 			return *this;
 		}
 		VSOutput operator*(float rhs) const
@@ -92,6 +103,8 @@ class VSOutput{
 			pos /= rhs;
 			n /= rhs;
 			worldPos /= rhs;
+			t /= rhs;
+			nend /= rhs;
 			return *this;
 		}
 		VSOutput operator/(float rhs) const
@@ -102,18 +115,44 @@ class VSOutput{
 		Vec4 pos;
 		Vec3 n;
 		Vec3 worldPos;
+		Vec2 t;
+		Vec4 nend;
 	};
-
-	// calculate color based on normal to light angle
-	// no interpolation of color attribute
 	class VertexShader : public BaseVertexShader<VSOutput>
-	{ 
+	{
 	public:
+		void SetTime(float time)
+		{
+			t = time;
+		}
 		typename BaseVertexShader::Output operator()(const Vertex& v) const
 		{
-			const auto p4 = Vec4(v.pos);
-			return { p4 * worldViewProj, Vec4{ v.n,0.0f } * worldView, p4 * worldView };
+			// calculate some triggy bois
+			const auto angle = wrap_angle(v.pos.x * freq + t * wavelength);
+			const auto cosx = std::cos(angle);
+			const auto sinx = std::sin(angle);
+
+			// sine wave amplitude from position w/ time variant phase animation
+			const auto dz = amplitude * cosx;
+			const auto pos = Vec4{ v.pos.x,v.pos.y,v.pos.z + dz,1.0f };
+			// normal derived base on cross product of partial dx x dy
+			auto n = Vec4{
+				-freq * amplitude * sinx,
+				0.0f,
+				-1.0f,
+				0.0f
+			};
+
+			n.Normalize();
+			const auto nend = pos + n * 0.02f;
+
+			return { pos * worldViewProj,n * worldView,pos * worldView,v.t,nend * worldViewProj };
 		}
+	private:
+		static constexpr float wavelength = PI;
+		static constexpr float freq = 45.0f;
+		static constexpr float amplitude = 0.02f;
+		float t = 0.0f;
 	};
 	// default gs passes vertices through and outputs triangle
 	typedef DefaultGeometryShader<typename VertexShader::Output> GeometryShader;
@@ -127,9 +166,22 @@ class VSOutput{
 		template<class Input>
 		Color operator()(const Input& in) const
 		{
+			const auto material_color = Vec3(pTex->GetPixel(
+				unsigned int(in.t.x * tex_width + 0.5f) % tex_width,
+				unsigned int(in.t.y * tex_height + 0.5f) % tex_width
+			)) / 255.0f;
 			return Shade(in, material_color);
 		}
-		Vec3 material_color = { 0.8f,0.85f,1.0f };
+		void BindTexture(const Surface& tex)
+		{
+			pTex = &tex;
+			tex_width = pTex->GetWidth();
+			tex_height = pTex->GetHeight();
+		}
+	private:
+		const Surface* pTex = nullptr;
+		unsigned int tex_width;
+		unsigned int tex_height;
 	};
 public:
 	VertexShader vs;

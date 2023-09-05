@@ -1,8 +1,8 @@
 #pragma once
 
 #include "Pipeline.h"
-#include "DefaultVertexShader.h"
 #include "DefaultGeometryShader.h"
+#include "BaseVertexShader.h"
 //solid color attribute not interpolated
 
 class SolidEffect {
@@ -67,90 +67,74 @@ public:
 	};
 	// default vs rotates and translates vertices
 	// does not touch attributes
-	class VertexShader
+	class VSOutput
 	{
 	public:
-		class Output
+		VSOutput() = default;
+		VSOutput(const Vec4& pos)
+			:
+			pos(pos)
+		{}
+		VSOutput(const Vec4& pos, const Vertex& src)
+			:
+			color(src.color),
+			pos(pos)
+		{}
+		VSOutput(const Vec4& pos, const Color& color)
+			:
+			color(color),
+			pos(pos)
+		{}
+		VSOutput& operator+=(const VSOutput& rhs)
 		{
-		public:
-			Output() = default;
-			Output(const Vec4& pos)
-				:
-				pos(pos)
-			{}
-			Output(const Vec4& pos, const Vertex& src)
-				:
-				color(src.color),
-				pos(pos)
-			{}
-			Output(const Vec4& pos, const Color& color)
-				:
-				color(color),
-				pos(pos)
-			{}
-			Output& operator+=(const Output& rhs)
-			{
-				pos += rhs.pos;
-				return *this;
-			}
-			Output operator+(const Output& rhs) const
-			{
-				return Output(*this) += rhs;
-			}
-			Output& operator-=(const Output& rhs)
-			{
-				pos -= rhs.pos;
-				return *this;
-			}
-			Output operator-(const Output& rhs) const
-			{
-				return Output(*this) -= rhs;
-			}
-			Output& operator*=(float rhs)
-			{
-				pos *= rhs;
-				return *this;
-			}
-			Output operator*(float rhs) const
-			{
-				return Output(*this) *= rhs;
-			}
-			Output& operator/=(float rhs)
-			{
-				pos /= rhs;
-				return *this;
-			}
-			Output operator/(float rhs) const
-			{
-				return Output(*this) /= rhs;
-			}
-		public:
-			Vec4 pos;
-			Color color;
-		};
+			pos += rhs.pos;
+			return *this;
+		}
+		VSOutput operator+(const VSOutput& rhs) const
+		{
+			return VSOutput(*this) += rhs;
+		}
+		VSOutput& operator-=(const VSOutput& rhs)
+		{
+			pos -= rhs.pos;
+			return *this;
+		}
+		VSOutput operator-(const VSOutput& rhs) const
+		{
+			return VSOutput(*this) -= rhs;
+		}
+		VSOutput& operator*=(float rhs)
+		{
+			pos *= rhs;
+			return *this;
+		}
+		VSOutput operator*(float rhs) const
+		{
+			return VSOutput(*this) *= rhs;
+		}
+		VSOutput& operator/=(float rhs)
+		{
+			pos /= rhs;
+			return *this;
+		}
+		VSOutput operator/(float rhs) const
+		{
+			return VSOutput(*this) /= rhs;
+		}
 	public:
-		void BindWorld(const Mat4& transformation_in)
+		Vec4 pos;
+		Color color;
+	};
+
+	class VertexShader : public BaseVertexShader<VSOutput>
+	{
+	public:
+
+		VSOutput operator()(const Vertex& v) const
 		{
-			world = transformation_in;
-			worldProj = world * proj;
+			return{ Vec4(v.pos) * worldViewProj, v.color };
 		}
-		void BindProjection(const Mat4& transformation_in)
-		{
-			proj = transformation_in;
-			worldProj = world * proj;
-		}
-		const Mat4& GetProj() const
-		{
-			return proj;
-		}
-		Output operator()(const Vertex& v) const
-		{
-			return{ Vec4(v.pos) * worldProj,v.color };
-		}
-	private:
-		Mat4 world = Mat4::Identity();
-		Mat4 proj = Mat4::Identity();
-		Mat4 worldProj = Mat4::Identity();
+
 	};
 
 	//default gs passed vertices through and output triangle
